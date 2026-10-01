@@ -383,17 +383,12 @@ export class D1Storage implements IStorage {
   async addSearchHistory(userName: string, keyword: string): Promise<void> {
     try {
       const db = await this.getDatabase();
-      // 先删除可能存在的重复记录
+      // 用 INSERT OR REPLACE 原子写入：原先的「先 DELETE 再 INSERT」在并发写入
+      // 同一关键词时会撞上 UNIQUE(username, keyword) 约束导致 500
       await db
         .prepare(
-          'DELETE FROM search_history WHERE username = ? AND keyword = ?'
+          'INSERT OR REPLACE INTO search_history (username, keyword) VALUES (?, ?)'
         )
-        .bind(userName, keyword)
-        .run();
-
-      // 添加新记录
-      await db
-        .prepare('INSERT INTO search_history (username, keyword) VALUES (?, ?)')
         .bind(userName, keyword)
         .run();
 
