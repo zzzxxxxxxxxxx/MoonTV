@@ -92,3 +92,26 @@ jobs:
         # 用项目自己的脚本部署，复用 devDependencies 里锁定的 wrangler 版本，
         # 与本地 `pnpm cf:deploy` 完全一致。--keep-vars 保留 Dashboard 上设置的变量。
         run: pnpm cf:deploy -- --keep-vars
+
+      - name: Sync Worker secrets
+        # 从仓库 secrets 批量下发 USERNAME / PASSWORD（放在部署之后，
+        # 因为首次部署时 Worker 还不存在，secret bulk 会失败）
+        env:
+          SECRET_USERNAME: ${{ secrets.USERNAME }}
+          SECRET_PASSWORD: ${{ secrets.PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          json="$(jq -n \
+            --arg u "${SECRET_USERNAME:-}" \
+            --arg p "${SECRET_PASSWORD:-}" \
+            '{} | if $u != "" then .USERNAME = $u else . end
+                | if $p != "" then .PASSWORD = $p else . end')"
+
+          if [ "$json" = "{}" ]; then
+            echo "⏭️ 仓库未配置 USERNAME / PASSWORD secret，跳过"
+            exit 0
+          fi
+
+          echo "🔐 下发 Worker secrets: $(printf '%s' "$json" | jq -r 'keys | join(", ")')"
+          printf '%s' "$json" | npx wrangler secret bulk

@@ -150,6 +150,7 @@ pnpm cf:deploy
 - `CLOUDFLARE_API_TOKEN`：需具备 **Workers Scripts:编辑** 与 **D1:编辑** 权限
 - `CLOUDFLARE_ACCOUNT_ID`：Cloudflare 账户 ID
 - `D1_DATABASE_ID`（可选）：指定已有 D1 数据库；不设置则按名称查找或自动创建
+- `USERNAME` / `PASSWORD`（可选）：站长账号密码，部署后会自动 `wrangler secret bulk` 下发到 Worker；不设置则跳过（需自行用 `wrangler secret put` 配置）
 
 Variables 中可配置构建期变量（`NEXT_PUBLIC_STORAGE_TYPE` 不设置时按 `d1` 处理）。
 
