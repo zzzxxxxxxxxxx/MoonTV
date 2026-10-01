@@ -4,6 +4,10 @@
   // 使用自定义入口，以便额外暴露 Cron Triggers 需要的 scheduled handler
   "main": "./custom-worker.ts",
   "compatibility_date": "2025-09-01",
+  // next-themes 会把脚本转成字符串再求值，而 wrangler 默认开启 esbuild 的
+  // keep-names，会把 __name 助手注入这些字符串里，运行时导致
+  // "Uncaught ReferenceError: __name is not defined"。关掉即可。
+  "keep_names": false,
   "compatibility_flags": [
     // 启用 Node.js API
     "nodejs_compat",
