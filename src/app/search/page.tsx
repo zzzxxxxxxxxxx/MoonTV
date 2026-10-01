@@ -46,25 +46,15 @@ function SearchPageClient() {
     return getDefaultAggregate() ? 'agg' : 'all';
   });
 
-  // 成人内容过滤开关：优先读本地设置，否则跟随全局配置
-  // （全局 NEXT_PUBLIC_DISABLE_YELLOW_FILTER=true 时默认关闭过滤）
+  // 成人内容过滤开关：默认开启（全局 NEXT_PUBLIC_DISABLE_YELLOW_FILTER=true 时默认关闭）。
+  // 故意不做持久化——只保存在组件状态里，刷新、重进搜索页、重启浏览器都会恢复默认，
+  // 避免"临时关掉后忘了打开"导致的内容社死。
   const [enableYellowFilter, setEnableYellowFilter] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('enableYellowFilter');
-      if (saved !== null) {
-        return saved === 'true';
-      }
       return !(window as any).RUNTIME_CONFIG?.DISABLE_YELLOW_FILTER;
     }
     return true;
   });
-
-  const handleYellowFilterToggle = (value: boolean) => {
-    setEnableYellowFilter(value);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('enableYellowFilter', String(value));
-    }
-  };
 
   // 过滤后的结果。服务端请求时带了 yellow=0，所以过滤完全在前端做，
   // 开关切换是瞬时的，不需要重新搜索。
@@ -302,7 +292,7 @@ function SearchPageClient() {
                   {/* 成人内容过滤开关 */}
                   <label
                     className='flex items-center gap-2 cursor-pointer select-none'
-                    title='过滤掉采集站中标记为成人/福利类的条目，即时生效、无需重新搜索'
+                    title='过滤掉采集站中标记为成人/福利类的条目。仅本次搜索临时生效，刷新或重新进入本页会自动恢复开启'
                   >
                     <span className='text-sm text-gray-700 dark:text-gray-300'>
                       过滤成人内容
@@ -312,9 +302,7 @@ function SearchPageClient() {
                         type='checkbox'
                         className='sr-only peer'
                         checked={enableYellowFilter}
-                        onChange={() =>
-                          handleYellowFilterToggle(!enableYellowFilter)
-                        }
+                        onChange={() => setEnableYellowFilter((v) => !v)}
                       />
                       <div className='w-9 h-5 bg-gray-300 rounded-full peer-checked:bg-green-500 transition-colors dark:bg-gray-600'></div>
                       <div className='absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4'></div>
