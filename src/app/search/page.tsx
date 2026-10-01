@@ -46,10 +46,40 @@ function SearchPageClient() {
     return getDefaultAggregate() ? 'agg' : 'all';
   });
 
+  // 成人内容过滤开关：优先读本地设置，否则跟随全局配置
+  // （全局 NEXT_PUBLIC_DISABLE_YELLOW_FILTER=true 时默认关闭过滤）
+  const [enableYellowFilter, setEnableYellowFilter] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('enableYellowFilter');
+      if (saved !== null) {
+        return saved === 'true';
+      }
+      return !(window as any).RUNTIME_CONFIG?.DISABLE_YELLOW_FILTER;
+    }
+    return true;
+  });
+
+  const handleYellowFilterToggle = (value: boolean) => {
+    setEnableYellowFilter(value);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('enableYellowFilter', String(value));
+    }
+  };
+
+  // 过滤后的结果。服务端请求时带了 yellow=0，所以过滤完全在前端做，
+  // 开关切换是瞬时的，不需要重新搜索。
+  const filteredResults = useMemo(() => {
+    if (!enableYellowFilter) return searchResults;
+    return searchResults.filter((result) => {
+      const typeName = result.type_name || '';
+      return !yellowWords.some((word: string) => typeName.includes(word));
+    });
+  }, [searchResults, enableYellowFilter]);
+
   // 聚合后的结果（按标题和年份分组）
   const aggregatedResults = useMemo(() => {
     const map = new Map<string, SearchResult[]>();
-    searchResults.forEach((item) => {
+    filteredResults.forEach((item) => {
       // 使用 title + year + type 作为键，year 必然存在，但依然兜底 'unknown'
       const key = `${item.title.replaceAll(' ', '')}-${
         item.year || 'unknown'
@@ -90,7 +120,7 @@ function SearchPageClient() {
         }
       }
     });
-  }, [searchResults]);
+  }, [filteredResults]);
 
   useEffect(() => {
     // 无搜索参数时聚焦搜索框
@@ -163,19 +193,11 @@ function SearchPageClient() {
     try {
       setIsLoading(true);
       const response = await fetch(
-        `/api/search?q=${encodeURIComponent(query.trim())}`
+        `/api/search?q=${encodeURIComponent(query.trim())}&yellow=0`
       );
       const data = await response.json();
-      let results = data.results;
-      if (
-        typeof window !== 'undefined' &&
-        !(window as any).RUNTIME_CONFIG?.DISABLE_YELLOW_FILTER
-      ) {
-        results = results.filter((result: SearchResult) => {
-          const typeName = result.type_name || '';
-          return !yellowWords.some((word: string) => typeName.includes(word));
-        });
-      }
+      // 服务端已按 yellow=0 跳过过滤，这里保留原始结果，过滤交给 filteredResults
+      const results = data.results;
       setSearchResults(
         results.sort((a: SearchResult, b: SearchResult) => {
           // 优先排序：标题与搜索词完全一致的排在前面
@@ -271,29 +293,52 @@ function SearchPageClient() {
             </div>
           ) : showResults ? (
             <section className='mb-12'>
-              {/* 标题 + 聚合开关 */}
-              <div className='mb-8 flex items-center justify-between'>
+              {/* 标题 + 开关 */}
+              <div className='mb-8 flex flex-wrap items-center justify-between gap-3'>
                 <h2 className='text-xl font-bold text-gray-800 dark:text-gray-200'>
                   搜索结果
                 </h2>
-                {/* 聚合开关 */}
-                <label className='flex items-center gap-2 cursor-pointer select-none'>
-                  <span className='text-sm text-gray-700 dark:text-gray-300'>
-                    聚合
-                  </span>
-                  <div className='relative'>
-                    <input
-                      type='checkbox'
-                      className='sr-only peer'
-                      checked={viewMode === 'agg'}
-                      onChange={() =>
-                        setViewMode(viewMode === 'agg' ? 'all' : 'agg')
-                      }
-                    />
-                    <div className='w-9 h-5 bg-gray-300 rounded-full peer-checked:bg-green-500 transition-colors dark:bg-gray-600'></div>
-                    <div className='absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4'></div>
-                  </div>
-                </label>
+                <div className='flex items-center gap-4'>
+                  {/* 成人内容过滤开关 */}
+                  <label
+                    className='flex items-center gap-2 cursor-pointer select-none'
+                    title='过滤掉采集站中标记为成人/福利类的条目，即时生效、无需重新搜索'
+                  >
+                    <span className='text-sm text-gray-700 dark:text-gray-300'>
+                      过滤成人内容
+                    </span>
+                    <div className='relative'>
+                      <input
+                        type='checkbox'
+                        className='sr-only peer'
+                        checked={enableYellowFilter}
+                        onChange={() =>
+                          handleYellowFilterToggle(!enableYellowFilter)
+                        }
+                      />
+                      <div className='w-9 h-5 bg-gray-300 rounded-full peer-checked:bg-green-500 transition-colors dark:bg-gray-600'></div>
+                      <div className='absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4'></div>
+                    </div>
+                  </label>
+                  {/* 聚合开关 */}
+                  <label className='flex items-center gap-2 cursor-pointer select-none'>
+                    <span className='text-sm text-gray-700 dark:text-gray-300'>
+                      聚合
+                    </span>
+                    <div className='relative'>
+                      <input
+                        type='checkbox'
+                        className='sr-only peer'
+                        checked={viewMode === 'agg'}
+                        onChange={() =>
+                          setViewMode(viewMode === 'agg' ? 'all' : 'agg')
+                        }
+                      />
+                      <div className='w-9 h-5 bg-gray-300 rounded-full peer-checked:bg-green-500 transition-colors dark:bg-gray-600'></div>
+                      <div className='absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4'></div>
+                    </div>
+                  </label>
+                </div>
               </div>
               <div
                 key={`search-results-${viewMode}`}
@@ -315,7 +360,7 @@ function SearchPageClient() {
                         </div>
                       );
                     })
-                  : searchResults.map((item) => (
+                  : filteredResults.map((item) => (
                       <div
                         key={`all-${item.source}-${item.id}`}
                         className='w-full'
@@ -339,7 +384,7 @@ function SearchPageClient() {
                         />
                       </div>
                     ))}
-                {searchResults.length === 0 && (
+                {filteredResults.length === 0 && (
                   <div className='col-span-full text-center text-gray-500 py-8 dark:text-gray-400'>
                     未找到相关结果
                   </div>

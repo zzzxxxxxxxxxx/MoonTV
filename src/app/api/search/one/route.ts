@@ -9,6 +9,8 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get('q');
   const resourceId = searchParams.get('resourceId');
+  // yellow=0 表示调用方自行处理过滤，服务端不过滤
+  const skipYellowFilter = searchParams.get('yellow') === '0';
 
   if (!query || !resourceId) {
     const cacheTime = await getCacheTime();
@@ -42,7 +44,7 @@ export async function GET(request: Request) {
 
     const results = await searchFromApi(targetSite, query);
     let result = results.filter((r) => r.title === query);
-    if (!config.SiteConfig.DisableYellowFilter) {
+    if (!skipYellowFilter && !config.SiteConfig.DisableYellowFilter) {
       result = result.filter((result) => {
         const typeName = result.type_name || '';
         return !yellowWords.some((word: string) => typeName.includes(word));

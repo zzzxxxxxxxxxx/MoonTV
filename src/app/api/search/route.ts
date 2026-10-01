@@ -7,6 +7,8 @@ import { yellowWords } from '@/lib/yellow';
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get('q');
+  // yellow=0 表示调用方（如前端搜索页的快捷开关）自行处理过滤，服务端不过滤
+  const skipYellowFilter = searchParams.get('yellow') === '0';
 
   if (!query) {
     const cacheTime = await getCacheTime();
@@ -29,7 +31,7 @@ export async function GET(request: Request) {
   try {
     const results = await Promise.all(searchPromises);
     let flattenedResults = results.flat();
-    if (!config.SiteConfig.DisableYellowFilter) {
+    if (!skipYellowFilter && !config.SiteConfig.DisableYellowFilter) {
       flattenedResults = flattenedResults.filter((result) => {
         const typeName = result.type_name || '';
         return !yellowWords.some((word: string) => typeName.includes(word));
