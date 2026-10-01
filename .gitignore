@@ -28,6 +28,7 @@ yarn-error.log*
 # local env files
 .env
 .env*.local
+.dev.vars
 
 # vercel
 .vercel
@@ -43,3 +44,12 @@ sitemap-*.xml
 # generated files
 src/lib/runtime.ts
 public/manifest.json
+.open-next
+
+# next-pwa build output
+public/sw.js
+public/workbox-*.js
+public/fallback-*.js
+
+# wrangler local state
+.wrangler

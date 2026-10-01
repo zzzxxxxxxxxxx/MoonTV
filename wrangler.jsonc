@@ -1,0 +1,32 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "moontv",
+  // 使用自定义入口，以便额外暴露 Cron Triggers 需要的 scheduled handler
+  "main": "./custom-worker.ts",
+  "compatibility_date": "2025-09-01",
+  "compatibility_flags": [
+    // 启用 Node.js API
+    "nodejs_compat",
+    // 允许应用内 fetch 外部 URL
+    "global_fetch_strictly_public"
+  ],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "moontv",
+      // TODO: 替换为 `npx wrangler d1 create moontv` 输出的 database_id
+      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+    }
+  ],
+  "triggers": {
+    // 等价于原 vercel.json 中的 crons：每天 01:00 (UTC) 调用 /api/cron
+    "crons": ["0 1 * * *"]
+  },
+  "observability": {
+    "enabled": true
+  }
+}

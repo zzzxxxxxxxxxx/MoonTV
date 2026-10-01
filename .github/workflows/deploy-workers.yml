@@ -1,0 +1,53 @@
+name: Deploy to Cloudflare Workers
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build for Cloudflare Workers
+        run: pnpm cf:build
+        env:
+          # NEXT_PUBLIC_* 在构建期注入，需在仓库
+          # Settings -> Secrets and variables -> Actions -> Variables 中配置
+          NEXT_PUBLIC_STORAGE_TYPE: ${{ vars.NEXT_PUBLIC_STORAGE_TYPE || 'd1' }}
+          NEXT_PUBLIC_ENABLE_REGISTER: ${{ vars.NEXT_PUBLIC_ENABLE_REGISTER }}
+          NEXT_PUBLIC_SEARCH_MAX_PAGE: ${{ vars.NEXT_PUBLIC_SEARCH_MAX_PAGE }}
+          NEXT_PUBLIC_IMAGE_PROXY: ${{ vars.NEXT_PUBLIC_IMAGE_PROXY }}
+          NEXT_PUBLIC_DOUBAN_PROXY: ${{ vars.NEXT_PUBLIC_DOUBAN_PROXY }}
+          NEXT_PUBLIC_DISABLE_YELLOW_FILTER: ${{ vars.NEXT_PUBLIC_DISABLE_YELLOW_FILTER }}
+
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --keep-vars

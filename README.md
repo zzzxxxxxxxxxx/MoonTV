@@ -8,7 +8,7 @@
 
 <div align="center">
 
-![Next.js](https://img.shields.io/badge/Next.js-14-000?logo=nextdotjs)
+![Next.js](https://img.shields.io/badge/Next.js-15-000?logo=nextdotjs)
 ![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3-38bdf8?logo=tailwindcss)
 ![TypeScript](https://img.shields.io/badge/TypeScript-4.x-3178c6?logo=typescript)
 ![License](https://img.shields.io/badge/License-MIT-green)
@@ -54,12 +54,12 @@
 
 | 分类      | 主要依赖                                                                                              |
 | --------- | ----------------------------------------------------------------------------------------------------- |
-| 前端框架  | [Next.js 14](https://nextjs.org/) · App Router                                                        |
+| 前端框架  | [Next.js 15](https://nextjs.org/) · App Router                                                        |
 | UI & 样式 | [Tailwind&nbsp;CSS 3](https://tailwindcss.com/)                                                       |
 | 语言      | TypeScript 4                                                                                          |
 | 播放器    | [ArtPlayer](https://github.com/zhw2590582/ArtPlayer) · [HLS.js](https://github.com/video-dev/hls.js/) |
 | 代码质量  | ESLint · Prettier · Jest                                                                              |
-| 部署      | Docker · Vercel · CloudFlare pages                                                                    |
+| 部署      | Docker · Vercel · Cloudflare Workers                                                                  |
 
 ## 部署
 
@@ -102,29 +102,52 @@
 4. 设置环境变量 NEXT_PUBLIC_STORAGE_TYPE，值为 **upstash**；设置 USERNAME 和 PASSWORD 作为站长账号
 5. 重试部署
 
-### Cloudflare 部署
+### Cloudflare Workers 部署
 
-**Cloudflare Pages 的环境变量尽量设置为密钥而非文本**
+本项目使用 [@opennextjs/cloudflare](https://opennext.js.org/cloudflare) 适配器部署到 **Cloudflare Workers**（Next.js Node.js runtime）。
 
-#### 普通部署（localstorage）
+**Cloudflare 的密钥请设置为 Secret，不要用明文变量**
 
-1. **Fork** 本仓库到你的 GitHub 账户。
-2. 登陆 [Cloudflare](https://cloudflare.com)，点击 **计算（Workers）-> Workers 和 Pages**，点击创建
-3. 选择 Pages，导入现有的 Git 存储库，选择 Fork 后的仓库
-4. 构建命令填写 **pnpm install --frozen-lockfile && pnpm run pages:build**，预设框架为无，**构建输出目录**为 `.vercel/output/static`
-5. 保持默认设置完成首次部署。进入设置，将兼容性标志设置为 `nodejs_compat`，无需选择，直接粘贴
-6. 首次部署完成后进入设置，新增 PASSWORD 密钥（变量和机密下），而后重试部署。
-7. 如需自定义 `config.json`，请直接修改 Fork 后仓库中该文件。
-8. 每次 Push 到 `main` 分支将自动触发重新构建。
+#### 1. 创建 D1 数据库（使用 D1 存储时）
 
-#### D1 支持
-
-0. 完成普通部署并成功访问
 1. 点击 **存储和数据库 -> D1 SQL 数据库**，创建一个新的数据库，名称随意
-2. 进入刚创建的数据库，点击左上角的 Explore Data，将[D1 初始化](D1初始化.md) 中的内容粘贴到 Query 窗口后点击 **Run All**，等待运行完成
-3. 返回你的 pages 项目，进入 **设置 -> 绑定**，添加绑定 D1 数据库，选择你刚创建的数据库，变量名称填 **DB**
-4. 设置环境变量 NEXT_PUBLIC_STORAGE_TYPE，值为 **d1**；设置 USERNAME 和 PASSWORD 作为站长账号
-5. 重试部署
+2. 进入刚创建的数据库，点击左上角的 Explore Data，将 [D1 初始化](D1初始化.md) 中的内容粘贴到 Query 窗口后点击 **Run All**，等待运行完成
+3. 复制数据库 ID，填入 `wrangler.jsonc` 中 `d1_databases[0].database_id`；绑定名保持 **DB** 不变
+
+#### 2. 本地开发与部署
+
+```bash
+pnpm install
+
+# 本地预览（在 Workers 运行时中运行，自动读取 wrangler.jsonc 的绑定）
+# 本地环境变量写在 .dev.vars（已 gitignore）
+pnpm cf:preview
+
+# 构建并部署到 Cloudflare Workers
+pnpm cf:build
+pnpm cf:deploy
+```
+
+#### 3. 配置线上变量
+
+在 Cloudflare Dashboard 的 **Workers 和 Pages -> moontv -> 设置 -> 变量和密钥** 中配置：
+
+- `NEXT_PUBLIC_STORAGE_TYPE=d1`（使用 D1 存储时）
+- `USERNAME` / `PASSWORD`：站长账号
+- 如需自定义 `config.json`，请直接修改仓库中该文件（构建时会被打包进应用）
+
+> `NEXT_PUBLIC_*` 前缀的变量在**构建期**注入，需要在构建环境中提供；运行时变量则由 Workers 的 Variables/Secrets 提供。
+
+#### 4. 自动部署
+
+仓库内置 `.github/workflows/deploy-workers.yml`，Push 到 `main` 分支会自动构建并部署。需在 GitHub 仓库的 **Settings -> Secrets and variables -> Actions** 中添加：
+
+- `CLOUDFLARE_API_TOKEN`：具备 Workers 编辑权限的 API Token
+- `CLOUDFLARE_ACCOUNT_ID`：Cloudflare 账户 ID
+
+#### 5. 定时任务
+
+`wrangler.jsonc` 中已配置 Cron Triggers（每天 01:00 UTC）调用 `/api/cron`，用于刷新播放记录与收藏的元数据，等价于原先 Vercel 的 cron 配置。
 
 ### Docker 部署
 

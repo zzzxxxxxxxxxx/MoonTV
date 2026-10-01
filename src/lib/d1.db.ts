@@ -38,7 +38,17 @@ interface D1ExecResult {
 }
 
 // 获取全局D1数据库实例
-function getD1Database(): D1Database {
+async function getD1Database(): Promise<D1Database> {
+  // Cloudflare Workers（OpenNext）：D1 是对象绑定，不会出现在 process.env，需从运行时上下文获取
+  try {
+    const { getCloudflareContext } = await import('@opennextjs/cloudflare');
+    const env = getCloudflareContext().env as { DB?: D1Database };
+    if (env?.DB) {
+      return env.DB;
+    }
+  } catch {
+    // 非 Cloudflare 环境（Docker / 裸 Node）走下面的回退
+  }
   return (process.env as any).DB as D1Database;
 }
 
@@ -47,7 +57,7 @@ export class D1Storage implements IStorage {
 
   private async getDatabase(): Promise<D1Database> {
     if (!this.db) {
-      this.db = getD1Database();
+      this.db = await getD1Database();
     }
     return this.db;
   }
