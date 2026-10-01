@@ -15,6 +15,10 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      # D1 解析/建表与部署都需要，放在 job 级别
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - name: Checkout source code
         uses: actions/checkout@v7
@@ -88,6 +92,3 @@ jobs:
         # 用项目自己的脚本部署，复用 devDependencies 里锁定的 wrangler 版本，
         # 与本地 `pnpm cf:deploy` 完全一致。--keep-vars 保留 Dashboard 上设置的变量。
         run: pnpm cf:deploy -- --keep-vars
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
