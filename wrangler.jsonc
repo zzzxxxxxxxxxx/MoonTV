@@ -10,6 +10,10 @@
     // 允许应用内 fetch 外部 URL
     "global_fetch_strictly_public"
   ],
+  // 非敏感变量；USERNAME / PASSWORD 等敏感值请用 `wrangler secret put` 设置
+  "vars": {
+    "NEXT_PUBLIC_STORAGE_TYPE": "d1"
+  },
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
@@ -18,8 +22,7 @@
     {
       "binding": "DB",
       "database_name": "moontv",
-      // TODO: 替换为 `npx wrangler d1 create moontv` 输出的 database_id
-      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+      "database_id": "2445271d-f962-4f0b-a686-880301589d8f"
     }
   ],
   "triggers": {
