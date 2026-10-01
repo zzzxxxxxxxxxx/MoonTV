@@ -35,7 +35,9 @@
     // 等价于原 vercel.json 中的 crons：每天 01:00 (UTC) 调用 /api/cron
     "crons": ["0 1 * * *"]
   },
+  // 默认关闭 Workers 日志/追踪持久化（省配额、少留存）。
+  // 排查问题时改成 true 重新部署，或用 `npx wrangler tail` 实时看日志（不受此项影响）。
   "observability": {
-    "enabled": true
+    "enabled": false
   }
 }
