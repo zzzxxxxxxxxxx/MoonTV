@@ -22,7 +22,9 @@
     {
       "binding": "DB",
       "database_name": "moontv",
-      "database_id": "2445271d-f962-4f0b-a686-880301589d8f"
+      // 由 CI 在部署前注入（见 .github/workflows/deploy-workers.yml）；
+      // 本地 cf:preview 走 miniflare，不校验该值
+      "database_id": "${D1_DATABASE_ID}"
     }
   ],
   "triggers": {

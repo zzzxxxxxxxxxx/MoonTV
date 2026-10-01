@@ -108,11 +108,16 @@
 
 **Cloudflare 的密钥请设置为 Secret，不要用明文变量**
 
-#### 1. 创建 D1 数据库（使用 D1 存储时）
+#### 1. D1 数据库
 
-1. 点击 **存储和数据库 -> D1 SQL 数据库**，创建一个新的数据库，名称随意
-2. 进入刚创建的数据库，点击左上角的 Explore Data，将 [D1 初始化](D1初始化.md) 中的内容粘贴到 Query 窗口后点击 **Run All**，等待运行完成
-3. 复制数据库 ID，填入 `wrangler.jsonc` 中 `d1_databases[0].database_id`；绑定名保持 **DB** 不变
+使用 D1 存储时**无需手动建库建表**，自动部署流程会依次完成：
+
+1. 按名称查找 `moontv` 数据库，**不存在则自动创建**
+2. 把拿到的 database_id 注入 `wrangler.jsonc` 的占位符 `${D1_DATABASE_ID}`
+3. 执行 [schema.sql](schema.sql) 建表（全部是 `CREATE ... IF NOT EXISTS`，幂等）
+
+> 占位符没法写死在仓库里——wrangler 不支持配置文件中的环境变量插值，只能在部署前替换。
+> 想固定使用某个已有库，可在仓库 secrets 里设置 `D1_DATABASE_ID`。绑定名保持 **DB** 不变。
 
 #### 2. 本地开发与部署
 
@@ -142,8 +147,11 @@ pnpm cf:deploy
 
 仓库内置 `.github/workflows/deploy-workers.yml`，Push 到 `main` 分支会自动构建并部署。需在 GitHub 仓库的 **Settings -> Secrets and variables -> Actions** 中添加：
 
-- `CLOUDFLARE_API_TOKEN`：具备 Workers 编辑权限的 API Token
+- `CLOUDFLARE_API_TOKEN`：需具备 **Workers Scripts:编辑** 与 **D1:编辑** 权限
 - `CLOUDFLARE_ACCOUNT_ID`：Cloudflare 账户 ID
+- `D1_DATABASE_ID`（可选）：指定已有 D1 数据库；不设置则按名称查找或自动创建
+
+Variables 中可配置构建期变量（`NEXT_PUBLIC_STORAGE_TYPE` 不设置时按 `d1` 处理）。
 
 #### 5. 定时任务
 

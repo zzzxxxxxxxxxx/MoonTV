@@ -44,6 +44,46 @@ jobs:
           NEXT_PUBLIC_DOUBAN_PROXY: ${{ vars.NEXT_PUBLIC_DOUBAN_PROXY }}
           NEXT_PUBLIC_DISABLE_YELLOW_FILTER: ${{ vars.NEXT_PUBLIC_DISABLE_YELLOW_FILTER }}
 
+      - name: Resolve D1 database
+        id: d1
+        env:
+          # 可选：设置仓库 secret D1_DATABASE_ID 可指定已有数据库；
+          # 未设置时按名称查找，找不到就自动创建
+          D1_ID: ${{ secrets.D1_DATABASE_ID }}
+        run: |
+          set -euo pipefail
+          DB_NAME=moontv
+          find_id() {
+            npx wrangler d1 list --json \
+              | jq -r --arg n "$DB_NAME" '.[] | select(.name == $n) | .uuid' | head -n1
+          }
+
+          id="${D1_ID:-}"
+          if [ -z "$id" ]; then
+            id="$(find_id)"
+          fi
+
+          if [ -z "$id" ] || [ "$id" = "null" ]; then
+            echo "🆕 D1 数据库 $DB_NAME 不存在，正在创建…"
+            npx wrangler d1 create "$DB_NAME"
+            id="$(find_id)"
+          fi
+
+          if [ -z "$id" ] || [ "$id" = "null" ]; then
+            echo "❌ 无法解析 D1 database_id" >&2
+            exit 1
+          fi
+
+          echo "🔗 使用 D1 数据库: $DB_NAME ($id)"
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
+      - name: Inject D1 database id into wrangler.jsonc
+        run: sed -i 's|\${D1_DATABASE_ID}|${{ steps.d1.outputs.id }}|' wrangler.jsonc
+
+      - name: Apply D1 schema
+        # schema.sql 全部是 CREATE ... IF NOT EXISTS，幂等，可重复执行
+        run: npx wrangler d1 execute moontv --remote --file=./schema.sql
+
       - name: Deploy Worker
         # 用项目自己的脚本部署，复用 devDependencies 里锁定的 wrangler 版本，
         # 与本地 `pnpm cf:deploy` 完全一致。--keep-vars 保留 Dashboard 上设置的变量。
